@@ -8,6 +8,7 @@ to format needed by taskwarrior.
 import argparse
 import pandas as pd
 import uuid
+import json
 from datetime import datetime
 
 from pprint import pprint as pp
@@ -16,6 +17,7 @@ from pprint import pprint as pp
 def parse_args():
     parser = argparse.ArgumentParser(description="A tool to translate ticktick backup csv's to taskwarrior files")
     parser.add_argument('-i', '--input', required=True, help='ticktick backup csv file')
+    parser.add_argument('-o', '--output', help='output file for generated taskwarrior json')
     return parser.parse_args()
 
 
@@ -25,19 +27,27 @@ def dt_convert(tt_dt):
         return ''
 
     dt = datetime.strptime(tt_dt, "%Y-%m-%dT%H:%M:%S%z")
-    return dt.strftime("%Y%M%dT%H%M%SZ")
+    return dt.strftime("%Y%m%dT%H%M%SZ")
+
+
+def write_to_file(dictlist, path):
+    with open(path, 'w') as f:
+        for i in range(len(dictlist)):
+            f.write(json.dumps(dictlist[i]))
+            if i < len(dictlist):
+                f.write("\n")
 
 
 def parse_row(json):
 
     if json['Status'] == 0:
-        status = "Pending"
+        status = "pending"
     else:
-        status = "Completed"
+        status = "completed"
 
     output_dict = {
         "status": status,
-        "uuid": str(uuid.uuid1().hex),
+        "uuid": str(uuid.uuid1()),
         "entry": dt_convert(json['Created Time']),
         "description": json['Title'],
     }
@@ -73,9 +83,10 @@ def main():
         row = input_csv.iloc[i].to_dict()
         output_dict.append(parse_row(row))
 
-    pp(output_dict)
-    return output_dict
+    if not args.output:
+        args.output = args.input.replace("csv", "json")
 
+    write_to_file(output_dict, args.output)
 
 if __name__ == "__main__":
     main()
